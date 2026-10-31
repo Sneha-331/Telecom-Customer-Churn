@@ -19,19 +19,39 @@ st.write(
 )
 
 # 3. Load saved models and preprocessing object
+
+# 3. Load saved models and preprocessing object
+
+@st.cache_resource
+def load_file(path):
+    try:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"File not found: {path}")
+
+        return joblib.load(path)
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Problem loading {path}: {type(e).__name__}: {e}"
+        ) from e
+
+
 @st.cache_resource
 def load_models():
-    data = joblib.load("models/preprocessed_data.pkl")
-    logistic_model = joblib.load("models/logistic_regression.pkl")
-    rf_model = joblib.load("models/best_random_forest_compressed.pkl")
+    data = load_file("models/preprocessed_data.pkl")
+    logistic_model = load_file("models/logistic_regression.pkl")
+    rf_model = load_file("models/best_random_forest_compressed.pkl")
 
     return data["preprocessor"], logistic_model, rf_model
 
+
 try:
     preprocessor, logistic_model, rf_model = load_models()
+
 except Exception as e:
     st.error(f"Could not load model files: {e}")
     st.stop()
+
 
 # 4. Model selection
 st.sidebar.header("Model Settings")
