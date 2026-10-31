@@ -23,7 +23,7 @@ st.write(
 def load_models():
     data = joblib.load("models/preprocessed_data.pkl")
     logistic_model = joblib.load("models/logistic_regression.pkl")
-    rf_model = joblib.load("models/best_random_forest.pkl")
+    rf_model = joblib.load("models/best_random_forest_compressed.pkl")
 
     return data["preprocessor"], logistic_model, rf_model
 
