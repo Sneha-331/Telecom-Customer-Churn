@@ -1,240 +1,3 @@
-
-"""import streamlit as st
-import pandas as pd
-import joblib
-import os
-
-# 1. Page configuration
-st.set_page_config(
-    page_title="Telecom Customer Churn Prediction",
-    page_icon="📊",
-    layout="wide"
-)
-
-# 2. Dashboard title
-st.title("📊 Telecom Customer Churn Prediction System")
-st.write(
-    "Predict customer churn risk using Machine Learning "
-    "and prioritize customer retention."
-)
-
-# 3. Load saved models and preprocessing object
-
-# 3. Load saved models and preprocessing object
-
-@st.cache_resource
-def load_file(path):
-    try:
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"File not found: {path}")
-
-        return joblib.load(path)
-
-    except Exception as e:
-        raise RuntimeError(
-            f"Problem loading {path}: {type(e).__name__}: {e}"
-        ) from e
-
-
-@st.cache_resource
-def load_models():
-    data = load_file("models/preprocessed_data.pkl")
-    logistic_model = load_file("models/logistic_regression.pkl")
-    rf_model = load_file("models/best_random_forest_compressed.pkl")
-
-    return data["preprocessor"], logistic_model, rf_model
-
-
-try:
-    preprocessor, logistic_model, rf_model = load_models()
-
-except Exception as e:
-    st.error(f"Could not load model files: {e}")
-    st.stop()
-
-
-# 4. Model selection
-st.sidebar.header("Model Settings")
-
-model_choice = st.sidebar.selectbox(
-    "Select Machine Learning Model",
-    ["Logistic Regression", "Tuned Random Forest"]
-)
-
-model = (
-    logistic_model
-    if model_choice == "Logistic Regression"
-    else rf_model
-)
-
-# 5. Customer input form
-st.header("👤 Enter Customer Details")
-
-with st.form("customer_form"):
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        gender = st.selectbox("Gender", ["Male", "Female"])
-        senior = st.selectbox("Senior Citizen", [0, 1])
-        partner = st.selectbox("Partner", ["Yes", "No"])
-        dependents = st.selectbox("Dependents", ["Yes", "No"])
-        tenure = st.slider("Tenure (Months)", 0, 72, 12)
-        phone = st.selectbox("Phone Service", ["Yes", "No"])
-        multiple = st.selectbox(
-            "Multiple Lines",
-            ["No", "Yes", "No phone service"]
-        )
-
-    with col2:
-        internet = st.selectbox(
-            "Internet Service",
-            ["DSL", "Fiber optic", "No"]
-        )
-        security = st.selectbox(
-            "Online Security",
-            ["Yes", "No", "No internet service"]
-        )
-        backup = st.selectbox(
-            "Online Backup",
-            ["Yes", "No", "No internet service"]
-        )
-        protection = st.selectbox(
-            "Device Protection",
-            ["Yes", "No", "No internet service"]
-        )
-        support = st.selectbox(
-            "Tech Support",
-            ["Yes", "No", "No internet service"]
-        )
-        tv = st.selectbox(
-            "Streaming TV",
-            ["Yes", "No", "No internet service"]
-        )
-        movies = st.selectbox(
-            "Streaming Movies",
-            ["Yes", "No", "No internet service"]
-        )
-
-    with col3:
-        contract = st.selectbox(
-            "Contract",
-            ["Month-to-month", "One year", "Two year"]
-        )
-        paperless = st.selectbox(
-            "Paperless Billing",
-            ["Yes", "No"]
-        )
-        payment = st.selectbox(
-            "Payment Method",
-            [
-                "Electronic check",
-                "Mailed check",
-                "Bank transfer (automatic)",
-                "Credit card (automatic)"
-            ]
-        )
-        monthly = st.number_input(
-            "Monthly Charges ($)",
-            min_value=0.0,
-            max_value=200.0,
-            value=70.0
-        )
-        total = st.number_input(
-            "Total Charges ($)",
-            min_value=0.0,
-            max_value=10000.0,
-            value=840.0
-        )
-
-    submitted = st.form_submit_button(
-        "Predict Churn Risk",
-        use_container_width=True
-    )
-
-# 6. Prediction
-if submitted:
-
-    customer = pd.DataFrame([{
-        "gender": gender,
-        "SeniorCitizen": senior,
-        "Partner": partner,
-        "Dependents": dependents,
-        "tenure": tenure,
-        "PhoneService": phone,
-        "MultipleLines": multiple,
-        "InternetService": internet,
-        "OnlineSecurity": security,
-        "OnlineBackup": backup,
-        "DeviceProtection": protection,
-        "TechSupport": support,
-        "StreamingTV": tv,
-        "StreamingMovies": movies,
-        "Contract": contract,
-        "PaperlessBilling": paperless,
-        "PaymentMethod": payment,
-        "MonthlyCharges": monthly,
-        "TotalCharges": total
-    }])
-
-    try:
-        processed_customer = preprocessor.transform(customer)
-        probability = model.predict_proba(processed_customer)[0][1]
-        risk = probability * 100
-
-        st.divider()
-        st.header("📈 Churn Prediction Result")
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            st.metric("Churn Probability", f"{risk:.2f}%")
-
-        with c2:
-            if risk < 30:
-                st.success("LOW RISK")
-                st.write("Customer is less likely to leave.")
-            elif risk < 60:
-                st.warning("MEDIUM RISK")
-                st.write("Customer needs attention.")
-            else:
-                st.error("HIGH RISK")
-                st.write("Customer has a high predicted churn risk.")
-
-        st.progress(int(risk))
-
-        st.subheader("💡 Retention Recommendation")
-
-        if risk >= 60:
-            st.write(
-                "- Contact the customer immediately.\n"
-                "- Offer a suitable retention discount.\n"
-                "- Provide personalized support."
-            )
-        elif risk >= 30:
-            st.write(
-                "- Monitor customer satisfaction.\n"
-                "- Share suitable service offers.\n"
-                "- Follow up with the customer."
-            )
-        else:
-            st.write(
-                "- Maintain good customer service.\n"
-                "- Continue regular engagement."
-            )
-
-        st.caption(
-            "Risk categories use project-defined thresholds, "
-            "not calibrated business cut-offs."
-        )
-
-    except Exception as e:
-        st.error(f"Prediction error: {e}")
-
-# 7. Footer
-st.divider()
-st.caption("CSE252 AI/ML Group Project | Telecom Customer Churn Prediction")"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -254,107 +17,66 @@ st.set_page_config(
 )
 
 # =========================================================
-# 2. CUSTOM CSS
+# 2. LIGHT / DARK MODE
 # =========================================================
 
-st.markdown("""
+theme_choice = st.sidebar.radio(
+    "🎨 Appearance",
+    ["Dark Mode", "Light Mode"],
+    horizontal=True,
+    key="app_theme"
+)
+
+if theme_choice == "Light Mode":
+    THEME = {
+        "app_bg": "#f4f7fb", "sidebar_bg": "#ffffff", "text": "#172033",
+        "heading": "#14213d", "muted": "#64748b", "card": "#ffffff",
+        "border": "#dbe3ef", "hero_start": "#e0ecff", "hero_end": "#dff7f5",
+        "hero_text": "#14213d", "accent": "#087ea4", "plot_bg": "#ffffff",
+        "grid": "#dbe3ef", "legend_bg": "#ffffff", "remaining": "#dbe3ef"
+    }
+else:
+    THEME = {
+        "app_bg": "#0b1120", "sidebar_bg": "#111c30", "text": "#f1f5f9",
+        "heading": "#e2e8f0", "muted": "#94a3b8", "card": "#142238",
+        "border": "#293e5a", "hero_start": "#142c4d", "hero_end": "#123b4b",
+        "hero_text": "#ffffff", "accent": "#38bdf8", "plot_bg": "#142238",
+        "grid": "#40516a", "legend_bg": "#142238", "remaining": "#334155"
+    }
+
+# =========================================================
+# 3. CUSTOM CSS
+# =========================================================
+
+st.markdown(f"""
 <style>
-    .stApp {
-        background-color: #0b1120;
-        color: #f1f5f9;
-    }
-
-    [data-testid="stSidebar"] {
-        background-color: #111c30;
-        border-right: 1px solid #263750;
-    }
-
-    h1, h2, h3 {
-        color: #e2e8f0;
-    }
-
-    .hero {
-        background: linear-gradient(120deg, #142c4d, #123b4b);
-        padding: 28px;
-        border-radius: 16px;
-        border: 1px solid #28516b;
-        margin-bottom: 22px;
-    }
-
-    .hero h1 {
-        color: #ffffff;
-        margin-bottom: 8px;
-    }
-
-    .hero p {
-        color: #cbd5e1;
-        font-size: 16px;
-    }
-
-    .info-card {
-        background: #142238;
-        padding: 18px;
-        border-radius: 12px;
-        border: 1px solid #293e5a;
-        min-height: 120px;
-    }
-
-    .info-card h3 {
-        color: #38bdf8;
-        font-size: 14px;
-        margin-bottom: 8px;
-    }
-
-    .info-card p {
-        color: #f8fafc;
-        font-size: 23px;
-        font-weight: 700;
-        margin: 0;
-    }
-
-    .small-note {
-        color: #94a3b8;
-        font-size: 13px;
-    }
-
-    div[data-testid="stMetric"] {
-        background-color: #142238;
-        border: 1px solid #293e5a;
-        padding: 15px;
-        border-radius: 12px;
-    }
-
-    div[data-testid="stForm"] {
-        background-color: #111c30;
-        padding: 20px;
-        border: 1px solid #293e5a;
-        border-radius: 12px;
-    }
-
-    .result-card {
-        background: #142238;
-        padding: 24px;
-        border-radius: 14px;
-        border: 1px solid #293e5a;
-        text-align: center;
-    }
-
-    .result-number {
-        font-size: 38px;
-        font-weight: 800;
-        color: #38bdf8;
-    }
-
-    .footer {
-        text-align: center;
-        color: #94a3b8;
-        padding: 20px;
-        font-size: 13px;
-    }
-
-    hr {
-        border-color: #293e5a;
-    }
+    .stApp {{ background-color: {THEME["app_bg"]}; color: {THEME["text"]}; }}
+    [data-testid="stSidebar"] {{ background-color: {THEME["sidebar_bg"]}; border-right: 1px solid {THEME["border"]}; }}
+    h1, h2, h3, h4, p, label, [data-testid="stMarkdownContainer"] {{ color: {THEME["text"]}; }}
+    .hero {{
+        background: linear-gradient(120deg, {THEME["hero_start"]}, {THEME["hero_end"]});
+        padding: 28px; border-radius: 16px; border: 1px solid {THEME["border"]}; margin-bottom: 22px;
+    }}
+    .hero h1 {{ color: {THEME["hero_text"]}; margin-bottom: 8px; }}
+    .hero p {{ color: {THEME["text"]}; font-size: 16px; }}
+    .info-card, div[data-testid="stMetric"], div[data-testid="stForm"] {{
+        background: {THEME["card"]}; border: 1px solid {THEME["border"]}; border-radius: 12px;
+    }}
+    .info-card {{ padding: 18px; min-height: 120px; }}
+    .info-card h3 {{ color: {THEME["accent"]}; font-size: 14px; margin-bottom: 8px; }}
+    .info-card p {{ color: {THEME["text"]}; font-size: 23px; font-weight: 700; margin: 0; }}
+    .small-note, .footer {{ color: {THEME["muted"]}; }}
+    .small-note {{ font-size: 13px; }}
+    div[data-testid="stMetric"] {{ padding: 15px; }}
+    div[data-testid="stForm"] {{ padding: 20px; }}
+    .result-card {{ background: {THEME["card"]}; padding: 24px; border-radius: 14px; border: 1px solid {THEME["border"]}; text-align: center; }}
+    .result-number {{ font-size: 38px; font-weight: 800; color: {THEME["accent"]}; }}
+    .footer {{ text-align: center; padding: 20px; font-size: 13px; }}
+    hr {{ border-color: {THEME["border"]}; }}
+    [data-baseweb="select"] > div, [data-baseweb="input"] > div, [data-baseweb="textarea"] > div {{
+        background-color: {THEME["card"]}; border-color: {THEME["border"]};
+    }}
+    .stButton button, .stFormSubmitButton button {{ border-radius: 9px; font-weight: 600; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -486,16 +208,17 @@ def make_chart():
 
     fig, ax = plt.subplots(figsize=(9, 4))
 
-    fig.patch.set_facecolor("#142238")
-    ax.set_facecolor("#142238")
-
-    ax.tick_params(colors="#e2e8f0")
-    ax.xaxis.label.set_color("#e2e8f0")
-    ax.yaxis.label.set_color("#e2e8f0")
-    ax.title.set_color("#ffffff")
+    fig.patch.set_facecolor(THEME["plot_bg"])
+    ax.set_facecolor(THEME["plot_bg"])
+    ax.tick_params(colors=THEME["text"])
+    ax.xaxis.label.set_color(THEME["text"])
+    ax.yaxis.label.set_color(THEME["text"])
+    ax.title.set_color(THEME["heading"])
 
     for spine in ax.spines.values():
-        spine.set_color("#40516a")
+        spine.set_color(THEME["grid"])
+    ax.grid(axis="y", alpha=0.18, color=THEME["grid"])
+    ax.set_axisbelow(True)
 
     return fig, ax
 
@@ -573,8 +296,8 @@ if page == "🏠 Overview":
                 labels=churn_data.index,
                 autopct="%1.1f%%",
                 startangle=90,
-                textprops={"color": "white"},
-                wedgeprops={"edgecolor": "#142238"}
+                textprops={"color": THEME["text"]},
+                wedgeprops={"edgecolor": THEME["plot_bg"]}
             )
 
             ax.set_title("Churn vs Retained Customers")
@@ -604,8 +327,8 @@ if page == "🏠 Overview":
             ax.tick_params(axis="x", rotation=0)
 
             ax.legend(
-                facecolor="#142238",
-                labelcolor="white"
+                facecolor=THEME["legend_bg"],
+                labelcolor=THEME["text"]
             )
 
             st.pyplot(fig)
@@ -731,8 +454,8 @@ elif page == "📊 Dataset Analysis":
         ax.tick_params(axis="x", rotation=0)
 
         ax.legend(
-            facecolor="#142238",
-            labelcolor="white"
+            facecolor=THEME["legend_bg"],
+            labelcolor=THEME["text"]
         )
 
         st.pyplot(fig)
@@ -813,8 +536,8 @@ elif page == "📊 Dataset Analysis":
         ax.tick_params(axis="x", rotation=0)
 
         ax.legend(
-            facecolor="#142238",
-            labelcolor="white"
+            facecolor=THEME["legend_bg"],
+            labelcolor=THEME["text"]
         )
 
         st.pyplot(fig)
@@ -954,8 +677,8 @@ elif page == "🤖 Model Performance":
         ax.set_title("Performance Metrics")
 
         ax.legend(
-            facecolor="#142238",
-            labelcolor="white"
+            facecolor=THEME["legend_bg"],
+            labelcolor=THEME["text"]
         )
 
         st.pyplot(fig)
@@ -1294,14 +1017,14 @@ elif page == "🎯 Predict Churn":
             ax.barh(
                 ["Churn Probability"],
                 [risk],
-                color="#38bdf8"
+                color=THEME["accent"]
             )
 
             ax.barh(
                 ["Churn Probability"],
                 [100 - risk],
                 left=[risk],
-                color="#334155"
+                color=THEME["remaining"]
             )
 
             ax.set_xlim(0, 100)
